@@ -47,6 +47,8 @@ public class ClusterMembershipListener implements MembershipListener {
             .get(SmartConfKeys.SMART_SERVER_RPC_ADDRESS_KEY,
                     SmartConfKeys.SMART_SERVER_RPC_ADDRESS_DEFAULT)
             .split(":")[1];
+    // Set the rpc address for active smart server,
+    // the configuration in xml will be override.
     conf.set(SmartConfKeys.SMART_SERVER_RPC_ADDRESS_KEY, rpcHost + ":" + rpcPort);
 
     if (HazelcastUtil.isMaster(HazelcastInstanceProvider.getInstance())) {
