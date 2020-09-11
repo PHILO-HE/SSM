@@ -166,8 +166,10 @@ public class CompressionCodec {
 
       case ZLIB:
         if (nativeCodeLoaded) {
+//          return new ZlibDecompressor(
+//              ZlibDecompressor.CompressionHeader.DEFAULT_HEADER, bufferSize);
           return new ZlibDecompressor(
-              ZlibDecompressor.CompressionHeader.DEFAULT_HEADER, bufferSize);
+              ZlibDecompressor.CompressionHeader.AUTODETECT_GZIP_ZLIB, bufferSize);
         }
         // TODO buffer size for build-in zlib codec
         return ZlibFactory.getZlibDecompressor(conf);
