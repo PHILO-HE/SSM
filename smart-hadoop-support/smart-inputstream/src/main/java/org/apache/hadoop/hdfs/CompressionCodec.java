@@ -117,7 +117,7 @@ public class CompressionCodec {
         if (nativeCodeLoaded) {
           return new ZlibCompressor(ZlibCompressor.CompressionLevel.DEFAULT_COMPRESSION,
               ZlibCompressor.CompressionStrategy.DEFAULT_STRATEGY,
-              ZlibCompressor.CompressionHeader.GZIP_FORMAT,
+              ZlibCompressor.CompressionHeader.NO_HEADER,
               bufferSize);
         }
         // TODO buffer size for build-in zlib codec
@@ -169,7 +169,7 @@ public class CompressionCodec {
 //          return new ZlibDecompressor(
 //              ZlibDecompressor.CompressionHeader.DEFAULT_HEADER, bufferSize);
           return new ZlibDecompressor(
-              ZlibDecompressor.CompressionHeader.GZIP_FORMAT, bufferSize);
+              ZlibDecompressor.CompressionHeader.NO_HEADER, bufferSize);
         }
         // TODO buffer size for build-in zlib codec
         return ZlibFactory.getZlibDecompressor(conf);
