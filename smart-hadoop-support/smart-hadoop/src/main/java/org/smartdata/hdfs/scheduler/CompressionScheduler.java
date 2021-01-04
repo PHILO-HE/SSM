@@ -335,9 +335,8 @@ public class CompressionScheduler extends ActionSchedulerService {
       long newFid = dfsClient.getFileInfo(filePath).getFileId();
       metaStore.updateAccessCountTableFid(oldFid, newFid);
     } catch (Exception e) {
-      LOG.warn("Failed to take over file access count for all tables, " +
-              "which may make the measurement for data temperature inaccurate!",
-          e.getMessage());
+      LOG.warn("Failed to take over file access count, which can make the " +
+          "measure for data temperature inaccurate!", e);
     }
   }
 

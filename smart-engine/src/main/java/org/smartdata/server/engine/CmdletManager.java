@@ -64,13 +64,11 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -215,6 +213,13 @@ public class CmdletManager extends AbstractService {
       cmdletInfos = metaStore.getCmdlets(CmdletState.DISPATCHED);
       if (cmdletInfos != null && cmdletInfos.size() != 0) {
         for (CmdletInfo cmdletInfo : cmdletInfos) {
+          //track reload cmdlets
+          CmdletDescriptor cmdletDescriptor =
+                  CmdletDescriptor.fromCmdletString(cmdletInfo.getParameters());
+          cmdletDescriptor.setRuleId(cmdletInfo.getRid());
+          if (!tracker.contains(cmdletDescriptor)) {
+            tracker.track(cmdletInfo.getCid(), cmdletDescriptor);
+          }
           List<ActionInfo> actionInfos = getActions(cmdletInfo.getAids());
           for (ActionInfo actionInfo: actionInfos) {
             actionInfo.setCreateTime(cmdletInfo.getGenerateTime());
@@ -227,6 +232,12 @@ public class CmdletManager extends AbstractService {
       cmdletInfos = metaStore.getCmdlets(CmdletState.PENDING);
       if (cmdletInfos != null && cmdletInfos.size() != 0) {
         for (CmdletInfo cmdletInfo : cmdletInfos) {
+          CmdletDescriptor cmdletDescriptor =
+                  CmdletDescriptor.fromCmdletString(cmdletInfo.getParameters());
+          cmdletDescriptor.setRuleId(cmdletInfo.getRid());
+          if (!tracker.contains(cmdletDescriptor)) {
+            tracker.track(cmdletInfo.getCid(), cmdletDescriptor);
+          }
           LOG.debug(String.format("Reload pending cmdlet: {}", cmdletInfo));
           List<ActionInfo> actionInfos = getActions(cmdletInfo.getAids());
           syncCmdAction(cmdletInfo, actionInfos);
@@ -235,6 +246,9 @@ public class CmdletManager extends AbstractService {
     } catch (MetaStoreException e) {
       LOG.error("DB connection error occurs when ssm is reloading cmdlets!");
       return;
+    } catch (ParseException ie) {
+      LOG.error("Cmdlet parameters format is not correct when ssm is"
+              + "reloading cmdlets!", ie);
     }
   }
 
@@ -478,7 +492,12 @@ public class CmdletManager extends AbstractService {
 
       for (CmdletInfo cmdletInfo : cmdletFinished) {
         idToCmdlets.remove(cmdletInfo.getCid());
-        tracker.untrack(cmdletInfo.getCid());
+        try {
+          tracker.untrack(cmdletInfo.getCid());
+        } catch (Exception e) {
+          LOG.warn("Untracking cmdlet failed.", e);
+        }
+
         for (Long aid : cmdletInfo.getAids()) {
           idToActions.remove(aid);
         }
@@ -489,9 +508,9 @@ public class CmdletManager extends AbstractService {
       LOG.debug("Number of cmds {} to submit", cmdletInfos.size());
       try {
         metaStore.insertActions(
-            actionInfos.toArray(new ActionInfo[actionInfos.size()]));
+                actionInfos.toArray(new ActionInfo[actionInfos.size()]));
         metaStore.insertCmdlets(
-            cmdletInfos.toArray(new CmdletInfo[cmdletInfos.size()]));
+                cmdletInfos.toArray(new CmdletInfo[cmdletInfos.size()]));
       } catch (MetaStoreException e) {
         LOG.error("CmdletIds -> [ {} ], submit to DB error", cmdletInfos, e);
       }
@@ -1364,8 +1383,6 @@ public class CmdletManager extends AbstractService {
 
     public void run() {
       try {
-        Set<CmdletInfo> failedCmdlet = new HashSet<>();
-        Set<CmdletInfo> succeededCmdlet = new HashSet<>();
         List<Long> cids = new ArrayList<>();
         cids.addAll(idToLaunchCmdlet.keySet());
         for (Long cid : cids) {
@@ -1383,28 +1400,18 @@ public class CmdletManager extends AbstractService {
               // For timeout action, speculate its status and set result
               // if needed.
               if (isSuccessfulBySpeculation(actionInfo)) {
-                succeededCmdlet.add(cmdletInfo);
                 ActionStatus actionStatus =
                     ActionStatusFactory.createSuccessActionStatus(
                         cmdletInfo, actionInfo);
-                onActionStatusUpdate(actionStatus);
+                onStatusUpdate(actionStatus);
               } else {
-                failedCmdlet.add(cmdletInfo);
                 ActionStatus actionStatus =
                     ActionStatusFactory.createTimeoutActionStatus(
                         cmdletInfo, actionInfo);
-                onActionStatusUpdate(actionStatus);
+                onStatusUpdate(actionStatus);
               }
             }
           }
-        }
-        for (CmdletInfo cmdletInfo: failedCmdlet) {
-          cmdletInfo.setState(CmdletState.FAILED);
-          cmdletFinished(cmdletInfo.getCid());
-        }
-        for (CmdletInfo cmdletInfo: succeededCmdlet) {
-          cmdletInfo.setState(CmdletState.DONE);
-          cmdletFinished(cmdletInfo.getCid());
         }
       } catch (ActionException e) {
         LOG.error(e.getMessage());
