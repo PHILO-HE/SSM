@@ -217,7 +217,7 @@ public class CmdletManager extends AbstractService {
           CmdletDescriptor cmdletDescriptor =
                   CmdletDescriptor.fromCmdletString(cmdletInfo.getParameters());
           cmdletDescriptor.setRuleId(cmdletInfo.getRid());
-          if (cmdletDescriptor != null && !tracker.contains(cmdletDescriptor)) {
+          if (!tracker.contains(cmdletDescriptor)) {
             tracker.track(cmdletInfo.getCid(), cmdletDescriptor);
           }
           List<ActionInfo> actionInfos = getActions(cmdletInfo.getAids());
@@ -235,7 +235,7 @@ public class CmdletManager extends AbstractService {
           CmdletDescriptor cmdletDescriptor =
                   CmdletDescriptor.fromCmdletString(cmdletInfo.getParameters());
           cmdletDescriptor.setRuleId(cmdletInfo.getRid());
-          if (cmdletDescriptor != null && !tracker.contains(cmdletDescriptor)) {
+          if (!tracker.contains(cmdletDescriptor)) {
             tracker.track(cmdletInfo.getCid(), cmdletDescriptor);
           }
           LOG.debug(String.format("Reload pending cmdlet: {}", cmdletInfo));
@@ -490,18 +490,6 @@ public class CmdletManager extends AbstractService {
         }
       }
 
-      if (cmdletInfos.size() > 0) {
-        LOG.debug("Number of cmds {} to submit", cmdletInfos.size());
-        try {
-          metaStore.insertActions(
-                  actionInfos.toArray(new ActionInfo[actionInfos.size()]));
-          metaStore.insertCmdlets(
-                  cmdletInfos.toArray(new CmdletInfo[cmdletInfos.size()]));
-        } catch (MetaStoreException e) {
-          LOG.error("CmdletIds -> [ {} ], submit to DB error", cmdletInfos, e);
-        }
-      }
-
       for (CmdletInfo cmdletInfo : cmdletFinished) {
         idToCmdlets.remove(cmdletInfo.getCid());
         try {
@@ -513,6 +501,18 @@ public class CmdletManager extends AbstractService {
         for (Long aid : cmdletInfo.getAids()) {
           idToActions.remove(aid);
         }
+      }
+    }
+
+    if (cmdletInfos.size() > 0) {
+      LOG.debug("Number of cmds {} to submit", cmdletInfos.size());
+      try {
+        metaStore.insertActions(
+                actionInfos.toArray(new ActionInfo[actionInfos.size()]));
+        metaStore.insertCmdlets(
+                cmdletInfos.toArray(new CmdletInfo[cmdletInfos.size()]));
+      } catch (MetaStoreException e) {
+        LOG.error("CmdletIds -> [ {} ], submit to DB error", cmdletInfos, e);
       }
     }
 
